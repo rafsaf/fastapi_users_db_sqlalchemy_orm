@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "fastapi-users-db-sqlalchemy-orm"
+version = "0.1.0"
+description = ""
+authors = ["rafsaf <rafal.safin12@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+fastapi-users = "^6.1.2"
+SQLAlchemy = {extras = ["asyncio"], version = "^1.4"}
+
+[tool.poetry.dev-dependencies]
+black = {version = "^21.9b0", python = ">=3.6.2,<4.0.0"}
+autoflake = "^1.4"
+flake8 = "^3.9.2"
+isort = "^5.9.3"
+coverage = "^5.5"
+pytest = "^6.2.5"
+pytest-asyncio = "^0.16.0"
+httpx = "^0.20.0"
+sqlalchemy-stubs = "^0.4"
+sqlalchemy2-stubs = "^0.0.2-alpha.19"
+aiosqlite = "^0.17.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
