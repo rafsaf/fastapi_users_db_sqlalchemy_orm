@@ -1,6 +1,6 @@
-"""FastAPI Users database adapter for SQLAlchemy + encode/databases."""
+"""FastAPI Users database adapter for SQLAlchemy ORM."""
 import uuid
-from typing import Mapping, Optional, Type
+from typing import Optional, Type
 
 from fastapi_users.db.base import BaseUserDatabase
 from fastapi_users.models import UD
@@ -11,26 +11,16 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
-    Table,
-    func,
-    select,
     delete,
+    func,
     insert,
+    select,
     update,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import relationship, Mapped
-from sqlalchemy.orm.session import DEACTIVE
-from sqlalchemy.types import CHAR, TypeDecorator
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import registry
-from sqlalchemy.orm.decl_api import DeclarativeMeta
-
-mapper_registry = registry()
-
-
-__version__ = "1.0.0"
+from sqlalchemy.ext.declarative import declared_attr
+from sqlalchemy.types import CHAR, TypeDecorator
 
 
 class GUID(TypeDecorator):  # pragma: no cover
@@ -82,10 +72,6 @@ class SQLAlchemyORMBaseUserTable:
     is_superuser = Column(Boolean, default=False, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
 
-    @declared_attr
-    def oauth_accounts(cls):
-        return relationship("OAuthAccount", back_populates="user")
-
 
 class SQLAlchemyORMBaseOAuthAccountTable:
     """Base SQLAlchemy OAuth account table definition."""
@@ -101,10 +87,6 @@ class SQLAlchemyORMBaseOAuthAccountTable:
     account_email = Column(String(length=320), nullable=False)
 
     @declared_attr
-    def user(cls):
-        return relationship("User", back_populates="oauth_accounts")
-
-    @declared_attr
     def user_id(cls):
         return Column(GUID, ForeignKey("user.id", ondelete="cascade"), nullable=False)
 
@@ -116,14 +98,12 @@ class NotSetOAuthAccountTableError(Exception):
     but no table were specified in the DB adapter.
     """
 
-    pass
-
 
 class SQLAlchemyORMUserDatabase(BaseUserDatabase[UD]):
     """
     Database adapter for SQLAlchemy.
     :param user_db_model: Pydantic model of a DB representation of a user.
-    :param database: `Database` instance from `encode/databases`.
+    :param session: `AsyncSession` instance from `sqlalchemy.ext.asyncio`.
     :param users: SQLAlchemy users table instance.
     :param oauth_accounts: Optional SQLAlchemy OAuth accounts table instance.
     """
@@ -132,43 +112,39 @@ class SQLAlchemyORMUserDatabase(BaseUserDatabase[UD]):
         self,
         user_db_model: Type[UD],
         session: AsyncSession,
-        user_table: SQLAlchemyORMBaseUserTable,
-        oauth_accounts: Optional[SQLAlchemyORMBaseOAuthAccountTable] = None,
+        users: SQLAlchemyORMBaseUserTable,
+        oauth_accounts: SQLAlchemyORMBaseOAuthAccountTable = None,
     ):
         super().__init__(user_db_model)
         self.session = session
-        self.user_table = user_table
+        self.users = users
         self.oauth_accounts = oauth_accounts
 
     async def get(self, id: UUID4) -> Optional[UD]:
-        query = select(self.user_table).where(self.user_table.id == id)
+        query = select(self.users).where(self.users.id == id)
         result = await self.session.execute(query)
-        user = result.first()
-
-        print(dict(user or {}))
-        print(dict(user or {}))
-        print(dict(user or {}))
-        return await self._make_user(dict(user)) if user else None
+        user = result.scalars().first()
+        return await self._make_user(user) if user else None
 
     async def get_by_email(self, email: str) -> Optional[UD]:
-        query = select(self.user_table).where(
-            func.lower(self.user_table.email) == func.lower(email)
+        query = select(self.users).where(
+            func.lower(self.users.email) == func.lower(email)
         )
         result = await self.session.execute(query)
         user = result.scalars().first()
-        return await self._make_user(user.__dict__) if user else None
+        return await self._make_user(user) if user else None
 
     async def get_by_oauth_account(self, oauth: str, account_id: str) -> Optional[UD]:
         if self.oauth_accounts is not None:
             query = (
-                select([self.user_table])
+                select([self.users])
                 .join(self.oauth_accounts)
                 .where(self.oauth_accounts.oauth_name == oauth)
                 .where(self.oauth_accounts.account_id == account_id)
             )
             result = await self.session.execute(query)
             user = result.scalars().first()
-            return await self._make_user(user.__dict__) if user else None
+            return await self._make_user(user) if user else None
         raise NotSetOAuthAccountTableError()
 
     async def create(self, user: UD) -> UD:
@@ -182,7 +158,7 @@ class SQLAlchemyORMUserDatabase(BaseUserDatabase[UD]):
             for oauth_account in oauth_accounts:
                 oauth_accounts_values.append({"user_id": user.id, **oauth_account})
 
-        query = insert(self.user_table)
+        query = insert(self.users)
         await self.session.execute(query, user_dict)
         await self.session.commit()
 
@@ -217,28 +193,24 @@ class SQLAlchemyORMUserDatabase(BaseUserDatabase[UD]):
             await self.session.commit()
 
         update_query = (
-            update(self.user_table)
-            .where(self.user_table.id == user.id)
-            .values(user_dict)
+            update(self.users).where(self.users.id == user.id).values(user_dict)
         )
         await self.session.execute(update_query)
         await self.session.commit()
         return user
 
     async def delete(self, user: UD) -> None:
-        query = delete(self.user_table).where(self.user_table.id == user.id)
+        query = delete(self.users).where(self.users.id == user.id)
         await self.session.execute(query)
         await self.session.commit()
 
-    async def _make_user(self, user: Mapping) -> UD:
-        user_dict = {**user}
-        print(user_dict)
+    async def _make_user(self, user: SQLAlchemyORMBaseUserTable) -> UD:
+        user_dict = user.__dict__
         if self.oauth_accounts is not None:
             query = select(self.oauth_accounts).where(
-                self.oauth_accounts.user_id == user["id"]
+                self.oauth_accounts.user_id == user_dict["id"]
             )
             result = await self.session.execute(query)
             oauth_accounts = result.scalars().all()
             user_dict["oauth_accounts"] = [a.__dict__ for a in oauth_accounts]
-        print(user_dict)
         return self.user_db_model(**user_dict)

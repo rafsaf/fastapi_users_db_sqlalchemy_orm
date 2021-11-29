@@ -6,8 +6,8 @@ authors = ["rafsaf <rafal.safin12@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.7"
-fastapi-users = "^6.1.2"
 SQLAlchemy = {extras = ["asyncio"], version = "^1.4"}
+fastapi-users = {extras = ["oauth"], version = "^8.1.2"}
 
 [tool.poetry.dev-dependencies]
 black = {version = "^21.9b0", python = ">=3.6.2,<4.0.0"}
@@ -25,3 +25,6 @@ aiosqlite = "^0.17.0"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"

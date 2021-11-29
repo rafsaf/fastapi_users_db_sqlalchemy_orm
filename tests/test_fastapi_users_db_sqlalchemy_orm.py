@@ -1,26 +1,24 @@
-import sqlite3
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 import pytest
-import sqlalchemy
 from sqlalchemy import Column, String
-from sqlalchemy.ext.declarative import DeclarativeMeta, declarative_base
-from typing import Any
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm.session import sessionmaker
+
 from fastapi_users_db_sqlalchemy_orm import (
     NotSetOAuthAccountTableError,
     SQLAlchemyORMBaseOAuthAccountTable,
     SQLAlchemyORMBaseUserTable,
     SQLAlchemyORMUserDatabase,
 )
-
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm.session import sessionmaker
 from tests.conftest import UserDB, UserDBOAuth
 
 
 @pytest.fixture
 async def sqlalchemy_user_db() -> AsyncGenerator[SQLAlchemyORMUserDatabase, None]:
-    Base: Any = declarative_base()  # type: ignore
+    Base: Any = declarative_base()
 
     class User(SQLAlchemyORMBaseUserTable, Base):
         first_name = Column(String, nullable=True)
@@ -41,7 +39,7 @@ async def sqlalchemy_user_db() -> AsyncGenerator[SQLAlchemyORMUserDatabase, None
 
 @pytest.fixture
 async def sqlalchemy_user_db_oauth() -> AsyncGenerator[SQLAlchemyORMUserDatabase, None]:
-    Base: Any = declarative_base()  # type: ignore
+    Base: Any = declarative_base()
 
     class User(SQLAlchemyORMBaseUserTable, Base):
         first_name = Column(String, nullable=True)
@@ -64,7 +62,6 @@ async def sqlalchemy_user_db_oauth() -> AsyncGenerator[SQLAlchemyORMUserDatabase
 
 
 @pytest.mark.asyncio
-@pytest.mark.db
 async def test_queries(sqlalchemy_user_db: SQLAlchemyORMUserDatabase[UserDB]):
     user = UserDB(
         email="lancelot@camelot.bt",
@@ -99,11 +96,11 @@ async def test_queries(sqlalchemy_user_db: SQLAlchemyORMUserDatabase[UserDB]):
     assert email_user.id == user_db.id
 
     # Exception when inserting existing email
-    with pytest.raises(sqlite3.IntegrityError):
+    with pytest.raises(IntegrityError):
         await sqlalchemy_user_db.create(user)
 
     # Exception when inserting non-nullable fields
-    with pytest.raises(sqlite3.IntegrityError):
+    with pytest.raises(IntegrityError):
         # Use construct to bypass Pydantic validation
         wrong_user = UserDB.construct(hashed_password="aaa")
         await sqlalchemy_user_db.create(wrong_user)
@@ -133,7 +130,6 @@ async def test_queries(sqlalchemy_user_db: SQLAlchemyORMUserDatabase[UserDB]):
 
 
 @pytest.mark.asyncio
-@pytest.mark.db
 async def test_queries_custom_fields(
     sqlalchemy_user_db: SQLAlchemyORMUserDatabase[UserDB],
 ):
@@ -152,7 +148,6 @@ async def test_queries_custom_fields(
 
 
 @pytest.mark.asyncio
-@pytest.mark.db
 async def test_queries_oauth(
     sqlalchemy_user_db_oauth: SQLAlchemyORMUserDatabase[UserDBOAuth],
     oauth_account1,
