@@ -23,6 +23,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.types import CHAR, TypeDecorator
 
+__version__ = "0.0.0"
+
 
 class GUID(TypeDecorator):  # pragma: no cover
     """Platform-independent GUID type.
