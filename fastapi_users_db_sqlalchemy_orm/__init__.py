@@ -1,4 +1,5 @@
-"""FastAPI Users database adapter for SQLAlchemy ORM."""
+"""FastAPI Users database adapter for SQLAlachemy ORM."""
+
 import uuid
 from typing import Optional, Type
 
@@ -137,7 +138,7 @@ class SQLAlchemyORMUserDatabase(BaseUserDatabase[UD]):
     async def get_by_oauth_account(self, oauth: str, account_id: str) -> Optional[UD]:
         if self.oauth_accounts is not None:
             query = (
-                select([self.users])
+                select(self.users)
                 .join(self.oauth_accounts)
                 .where(self.oauth_accounts.oauth_name == oauth)
                 .where(self.oauth_accounts.account_id == account_id)

@@ -1,6 +1,3 @@
-test-sqlalchemy-user-oauth.db
-test-sqlalchemy-user.db
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
